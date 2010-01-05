@@ -1,33 +1,15 @@
-var tcp = require('tcp');
+var sys = require("sys"),
+    aeromq = require("../clients/javascript/aeromq");
 
-var tcp = require("tcp"),
-    sys = require("sys");
+sys.puts("Welcome to the AeroMQ Testing Mobile!");
 
-var connection = tcp.createConnection(7000, host="localhost");
-connection.addListener('receive', function(data) {
-    sys.puts(data);
+client = new aeromq.AeroMqClient();
+
+client.addListener('connected', function() {
+    sys.puts("+ Successfully connected to the server!");
 });
 
-connection.addListener('close', function(had_error) {
-    if (had_error) {
-        sys.puts("Could not connect to AeroMQ server");
-    }
-    else {
-        sys.puts("Connection to server closed.");
-    }
-});
-
-connection.addListener('eof', function(had_error) {
-    connection.close();
-});
-
-function format_message(obj) {
-    return JSON.stringify(obj) + "\r\n"
-}
-
-connection.addListener('connect', function() {
-    //connection.send(format_message({command: "publish", queue: "trial", message: "hi"}));
-    //connection.send(format_message({command: "purge", queue: "trial"}));
-    connection.send(format_message({command: "subscribe", queue: "trial"}));
-    connection.send(format_message({command: "monitor", queue: "trial"}));
+client.addListener('couldNotConnect', function() {
+    sys.puts("- Could not connect to the server.");
+    process.exit(-1);
 });
