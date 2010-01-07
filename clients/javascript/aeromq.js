@@ -41,34 +41,38 @@ function c(host, port) {
         my.emit('connected');
     });
 
-    my.connection.addListener('receive', function(data) {
-        var bag, promise;
-        try {
-            bag = JSON.parse(data);
-        }
-        catch(e) {
-            my.emit('badBag', data, e);
-            return;
-        }
+    my.connection.addListener('receive', function(raw_data) {
+        raw_data.split('\r\n').forEach(function(data) {
+            if (!data) return;
+            var bag, promise;
+            try {
+                bag = JSON.parse(data);
+            }
+            catch(e) {
+                my.emit('badBag', data, e);
+                return;
+            }
 
-        promise = pending[bag.id];
-        if (!promise) {
-            my.emit('noPendingRequestForBag', bag);
-            return;
-        }
+            promise = pending[bag.id];
+            if (!promise) {
+                my.emit('orphanBag', bag);
+                return;
+            }
 
-        // Remove the promise. All commands are one-shot, even
-        // subscribe. If you want to get another message, you'll
-        // need to subscribe again.
-        delete pending[bag.id];
+            // Remove the promise. All commands are one-shot, even
+            // subscribe. If you want to get another message, you'll
+            // need to subscribe again.
+            delete pending[bag.id];
 
-        if (bag.success) {
-            // bag.message is often undefined, but that's ok.
-            promise.emitSuccess(bag.message);
-        }
-        else {
-            promise.emitError(bag.error);
-        }
+            if (bag.success) {
+                // bag.message is often undefined, but that's ok.
+                sys.puts(sys.inspect(bag));
+                promise.emitSuccess(bag.message);
+            }
+            else {
+                promise.emitError(bag.error);
+            }
+        });
     });
 
     my.connection.addListener('close', function(had_error) {

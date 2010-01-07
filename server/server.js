@@ -1,5 +1,7 @@
+/*global require process exports */
 var tcp = require("tcp"),
     sys = require("sys"),
+    assert = require("assert"),
     redisclient = require("redisclient");
 
 var id = {
@@ -8,7 +10,7 @@ var id = {
 };
 
 function format_message(obj) {
-    return JSON.stringify(obj) + "\r\n"
+    return JSON.stringify(obj) + "\r\n";
 }
 
 var subscriber_queues = {};
@@ -41,10 +43,10 @@ function c(config) {
 
             client.addListener('receive', function(raw_data) {
                 raw_data.split('\r\n').forEach(function(data) {
-                    var subscriber_list;
-                    if (!data) return;
+                    var subscriber_list, bag;
+                    if (!data) { return; }
                     try {
-                        action = JSON.parse(data);
+                        bag = JSON.parse(data);
                     }
                     catch(e) {
                         respond({
@@ -56,25 +58,29 @@ function c(config) {
                         });
                         return;
                     }
-                    // TODO assert message.command and message.queue
-                    switch (action.command.toLowerCase()) {
+
+                    assert.ok(bag.command);
+                    assert.ok(bag.queue);
+                    switch (bag.command.toLowerCase()) {
                         case 'purge':
-                            redis.del(action.queue);
+                            redis.del(bag.queue);
                             break;
                         case 'subscribe':
                             // Subscription status is maintained through your connection.
                             // So, we set up a handler in case you disappear and put you
                             // in the queue for the message you want. We don't respond
                             // until there is a 'publish' message for your subscription.
-                            subscriber_list = subscriber_queues[action.queue];
+                            subscriber_list = subscriber_queues[bag.queue];
                             if (subscriber_list) {
                                 subscriber_list.unshift(client);
                             }
                             else {
-                                subscriber_queues[action.queue] = [client];
-                                subscriber_list = subscriber_queues[action.queue];
+                                subscriber_queues[bag.queue] = [client];
+                                subscriber_list = subscriber_queues[bag.queue];
                             }
-                            client.addListener('eof', function() { client.close() });
+                            client.addListener('eof', function() {
+                                client.close();
+                            });
                             client.addListener('close', function() {
                                 var i;
                                 var len = subscriber_list.length;
@@ -86,23 +92,23 @@ function c(config) {
                                 }
                                 sys.puts("subscriber " + client.remoteAddress + " removed");
                             });
-                            my.emit('bringPeopleTogether', action.queue);
+                            my.emit('bringPeopleTogether', bag);
                             break;
                         case 'publish':
-                            redis.lpush(action.queue, action.message).addCallback(function(reply) {
-                                respond({success: reply});
-                                my.emit('bringPeopleTogether', action.queue);
+                            redis.lpush(bag.queue, bag.message).addCallback(function(reply) {
+                                respond({success: reply, id: bag.id});
+                                my.emit('bringPeopleTogether', bag);
                             });
                             break;
                         case 'monitor':
-                            redis.lrange(action.queue, 0, -1).addCallback(function(messages) {
-                                respond({success: true, messages: messages});
+                            redis.lrange(bag.queue, 0, -1).addCallback(function(messages) {
+                                respond({success: true, id: bag.id, messages: messages});
                             });
                             break;
                     }
                 });
             });
-        })
+        });
 
         var port = config.port || 7000;
         var host = config.host || "localhost";
@@ -117,20 +123,20 @@ function c(config) {
         }
     });
 
-    my.addListener('bringPeopleTogether', function(queue) {
+    my.addListener('bringPeopleTogether', function(bag) {
         // We got new data! How exciting! If we have a subscriber, pull
         // the data out of the database. If the subscriber hasn't been serviced
         // by the time we get the data, send it off and remove the subscriber
         // from the subscriber list. Otherwise, put the data back on the queue.
+        var queue = bag.queue;
         if (subscriber_queues[queue]) {
             redis.rpop(queue).addCallback(function(message) {
                 var subscriber, response;
                 if (message) {
                     if (subscriber_queues[queue].length) {
-                        response = {success: true, message: message}
+                        response = {success: true, message: message, id: bag.id};
                         subscriber = subscriber_queues[queue].pop();
                         subscriber.send(format_message(response)); 
-                        subscriber.close();
                     }
                     else {
                         redis.rpush(queue, message);
@@ -143,7 +149,7 @@ function c(config) {
 
 c.prototype = new process.EventEmitter();
 c.prototype.stop = function() {
-    var queue;
+    var queue, subscriber;
     for (queue in subscriber_queues) {
         if (subscriber_queues.hasOwnProperty(queue)) {
             for (subscriber in subscriber_queues[queue]) {
@@ -155,6 +161,6 @@ c.prototype.stop = function() {
         }
     }
     redis.close();
-}
+};
 
 exports.Server = c;
