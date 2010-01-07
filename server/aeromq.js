@@ -51,6 +51,10 @@ parser.on('help', function() {
 
 parser.parse(process.ARGV);
 
+process.addListener('uncaughtException', function(e) {
+    sys.puts("EXCEPTION: " + sys.inspect(e));
+});
+
 s = new server.Server(config);
 s.addListener('started', function(host, port) {
     sys.puts("AeroMQ started on " + host + ":" + port);
