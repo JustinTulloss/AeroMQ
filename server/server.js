@@ -63,7 +63,12 @@ function c(config) {
                     assert.ok(bag.queue);
                     switch (bag.command.toLowerCase()) {
                         case 'purge':
-                            redis.del(bag.queue);
+                            redis.del(bag.queue).addCallback(function() {
+                                respond({
+                                    success: true,
+                                    id: bag.id
+                                });
+                            });
                             break;
                         case 'subscribe':
                             // Subscription status is maintained through your connection.
@@ -102,7 +107,7 @@ function c(config) {
                             break;
                         case 'monitor':
                             redis.lrange(bag.queue, 0, -1).addCallback(function(messages) {
-                                respond({success: true, id: bag.id, messages: messages});
+                                respond({success: true, id: bag.id, message: messages});
                             });
                             break;
                     }
