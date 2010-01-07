@@ -1,5 +1,4 @@
-var tcp = require('tcp');
-
+/*globals require exports process */
 var tcp = require("tcp"),
     sys = require("sys");
 
@@ -12,7 +11,7 @@ var get_message_id = (function(){
     var message_id = 0;
     return function() {
         return message_id++;
-    }
+    };
 })();
 
 var pending = {};
@@ -43,7 +42,7 @@ function c(host, port) {
 
     my.connection.addListener('receive', function(raw_data) {
         raw_data.split('\r\n').forEach(function(data) {
-            if (!data) return;
+            if (!data) { return; }
             var bag, promise;
             try {
                 bag = JSON.parse(data);
@@ -66,7 +65,6 @@ function c(host, port) {
 
             if (bag.success) {
                 // bag.message is often undefined, but that's ok.
-                sys.puts(sys.inspect(bag));
                 promise.emitSuccess(bag.message);
             }
             else {

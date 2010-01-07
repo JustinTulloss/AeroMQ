@@ -21,6 +21,8 @@
  * THE SOFTWARE.
  */
 
+/*globals require process */
+
 var server = require('./server'),
     sys = require('sys'),
     optparse = require('optparse');
