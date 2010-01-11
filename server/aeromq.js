@@ -54,7 +54,8 @@ parser.on('help', function() {
 parser.parse(process.ARGV);
 
 process.addListener('uncaughtException', function(e) {
-    sys.puts("EXCEPTION: " + sys.inspect(e));
+    sys.puts("EXCEPTION: " + e.message);
+    sys.puts(e.stack);
 });
 
 s = new server.Server(config);
