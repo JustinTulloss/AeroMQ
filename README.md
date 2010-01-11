@@ -3,6 +3,32 @@ AeroMQ
 
 A very simple message queue implemented in node.js.
 
+Installation
+------------
+Go into `deps/node`
+Run
+
+    ./configure
+    make
+    sudo make install
+
+Go into `deps`
+Run `install.sh`
+
+Running the server
+------------------
+Start redis
+
+    cd redis
+    ./redis-server
+
+Start AeroMQ
+
+    sever/aeromq.js
+
+
+At this point, AeroMQ should announce that it is running.
+
 Protocol
 --------
 
