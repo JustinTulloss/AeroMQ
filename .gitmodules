@@ -1,6 +1,6 @@
 [submodule "deps/redis-client"]
 	path = deps/redis-client
-	url = http://github.com/fictorial/redis-node-client.git
+	url = http://github.com/jmtulloss/redis-node-client.git
 [submodule "deps/optparse"]
 	path = deps/optparse
 	url = git://github.com/jfd/optparse-js.git
