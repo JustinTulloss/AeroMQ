@@ -7,7 +7,7 @@ sys.puts("Welcome to the AeroMQ Testing Mobile!");
 
 var client = new aeromq.AeroMqClient();
 
-client.addListener('connected', function() {
+client.addListener('connect', function() {
     var queue = 'test';
     sys.puts("+ Successfully connected to the server!");
     client.purge(queue);

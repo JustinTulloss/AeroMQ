@@ -37,7 +37,9 @@ function c(host, port) {
     my.connection = tcp.createConnection(port || 7000, host || "localhost");
 
     my.connection.addListener('connect', function() {
-        my.emit('connected');
+        my.connection.setTimeout(0);
+        my.connection.setNoDelay();
+        my.emit('connect');
     });
 
     my.connection.addListener('receive', function(raw_data) {

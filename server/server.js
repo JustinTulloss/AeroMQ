@@ -27,6 +27,8 @@ function c(config) {
             }
 
             socket.setEncoding("utf8");
+            socket.setTimeout(0);
+            socket.setNoDelay();
             socket.addListener("connect", function() {
                 respond(id);
             });
