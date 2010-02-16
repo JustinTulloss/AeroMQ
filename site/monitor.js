@@ -3,10 +3,15 @@ require('./env');
 var mq = require('../clients/javascript/aeromq');
 
 get ('/', function() {
-    return { text: "There will be a list of queues here." }
+    return {
+        template: 'index',
+        print_date: function () {
+            return (new Date()).toDateString();
+        },
+    };
 });
 
-get('/:queue', function(params) {
+get('/queues/:queue', function(params) {
     var client = new mq.AeroMqClient();
     client.addListener('connect', function() {
         client.monitor(params.queue).addCallback(function(messages) {

@@ -1,0 +1,50 @@
+body {
+    font-family: Verdana, Geneva, sans-serif;
+    padding: 0;
+    margin: 0;
+}
+
+#masthead {
+    background: #FF7000;
+    height: 5em;
+}
+
+.title {
+    float: right;
+    font-family: Helvetica;
+    font-size: 4em;
+    color: white;
+    padding: .2em;
+}
+
+ul.menu {
+    position: relative;
+    background: #475363;
+    margin: 0;
+    padding: 10px;
+}
+
+ul.menu > li {
+    display: inline;
+    padding: 20px;
+}
+
+ul.menu a {
+    text-decoration: none;
+    color: #F3F2EF;
+}
+
+ul.menu > li.selected {
+    background: #4A0C0C;
+}
+
+ul.menu.sub {
+    position: relative;
+    background: #4A0C0C;
+    margin: 0;
+    padding: 10px;
+}
+
+ul.menu.sub > li.selected{
+    background: #89474B;
+}

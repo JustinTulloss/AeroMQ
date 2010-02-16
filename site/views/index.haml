@@ -4,10 +4,21 @@
   %head
     %title
       AeroMQ Monitor
+    %link{ rel: 'stylesheet', type: 'text/css', href: '/aeromq.css' }
   %body
-    .profile
-      .left.column{ id: 'this_is_an_id' }
-      .right.column
-        #name Queue: 
-          = queue
-
+    %ul.menu
+      %li
+        %a{ href: '/overview' } Overview
+      %li.selected
+        %a{ href: '/workers' } Workers
+      %li
+        %a{ href: '/queues' } Queues
+    %ul.menu.sub
+      %li.selected
+        %a{ href: '/overview' } one
+      %li
+        %a{ href: '/workers' } two
+      %li
+        %a{ href: '/queues' } three
+    #content
+      Hi
