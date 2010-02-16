@@ -13,7 +13,7 @@ mkdir -p ~/.node_libraries
 cd ~/.node_libraries
 ln -s $base/optparse/src/optparse.js optparse.js
 ln -s $base/redis-client/redisclient.js redisclient.js
-ln -s $base/express/lib/express express
-ln -s $base/express/lib/support support
-ln -s $base/express/lib/express.js express.js
+ln -s $base/picard/picard/lib/picard picard
+ln -s $base/picard/picard/lib/picard.js picard.js
+ln -s $base/haml-js/lib/haml.js haml.js
 cd $base

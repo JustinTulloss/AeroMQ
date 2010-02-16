@@ -10,6 +10,6 @@
 [submodule "deps/node"]
 	path = deps/node
 	url = git://github.com/ry/node.git
-[submodule "deps/express"]
-	path = deps/express
-	url = git://github.com/visionmedia/express.git
+[submodule "deps/picard"]
+	path = deps/picard
+	url = git://github.com/dantebronto/picard.git
