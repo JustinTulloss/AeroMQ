@@ -24,7 +24,7 @@
 /*globals require process */
 
 var server = require('./server'),
-    sys = require('sys'),
+    util = require('util'),
     optparse = require('optparse');
 
 var options = [
@@ -47,18 +47,18 @@ parser.on('host', function(host) {
 });
 
 parser.on('help', function() {
-    sys.puts(parser);
+    util.puts(parser);
     process.exit(0);
 });
 
 parser.parse(process.ARGV);
 
 process.addListener('uncaughtException', function(e) {
-    sys.puts("EXCEPTION: " + e.message);
-    sys.puts(e.stack);
+    util.puts("EXCEPTION: " + e.message);
+    util.puts(e.stack);
 });
 
 s = new server.Server(config);
 s.addListener('started', function(host, port) {
-    sys.puts("AeroMQ started on " + host + ":" + port);
+    util.puts("AeroMQ started on " + host + ":" + port);
 });

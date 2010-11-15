@@ -1,6 +1,6 @@
 /*globals require exports process */
-var tcp = require("tcp"),
-    sys = require("sys");
+var tcp = require("net"),
+    util = require("util");
 
 
 function format_message(obj) {
