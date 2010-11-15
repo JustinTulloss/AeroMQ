@@ -1,0 +1,22 @@
+{
+    "name": "AeroMQ",
+    "version": "0.0.1",
+    "description": "A simple, language agnostic message queue",
+    "main": "clients/javascript/aeromq.js",
+    "bin": {
+        "aeromq": "server/aeromq.js"
+    },
+    "repository": {
+        "type" : "git",
+        "url" : "http://github.com/JustinTulloss/AeroMQ.git"
+    },
+    "engines": {
+        "node": ">=0.3.0"
+    },
+    "dependencies": {
+        "optparse": ">=1.0.1",
+        "redis-client": ">=0.3.5"
+    },
+    "author": "Justin Tulloss <justin.tulloss@gmail.com> (http://justin.harmonize.fm)",
+    "bugs": { "web": "https://github.com/JustinTulloss/AeroMQ/issues" }
+}

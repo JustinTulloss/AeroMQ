@@ -1,8 +1,7 @@
 /*global require process exports */
-var tcp = require("tcp"),
-    sys = require("sys"),
+var util = require("util"),
     assert = require("assert"),
-    redisclient = require("redisclient");
+    redisclient = require("redis-client");
 
 var id = {
     name: 'AeroMQ',
@@ -97,7 +96,7 @@ function c(config) {
                                         break;
                                     }
                                 }
-                                sys.puts("subscriber " + client.remoteAddress + " removed");
+                                util.puts("subscriber " + client.remoteAddress + " removed");
                             });
                             my.emit('bringPeopleTogether', bag);
                             break;
@@ -125,7 +124,7 @@ function c(config) {
 
     redis.addListener('close', function(in_error) {
         if (in_error) {
-            sys.puts("Connection to redis failed, please make sure the server is running.");
+            util.puts("Connection to redis failed, please make sure the server is running.");
             process.exit(1);
         }
     });
