@@ -105,7 +105,7 @@ class Server extends process.EventEmitter
         port = config.port or 7000
         host = config.host or "localhost"
 
-        listener.listen port, host, (err) ->
+        listener.listen port, host, (err) =>
             if err
                 throw err
             @emit('started', host, port)
