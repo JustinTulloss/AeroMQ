@@ -13,8 +13,6 @@ ZSERVER_ADDRESS = "tcp://0.0.0.0:5556"
 DEFAULT_PORT = 7000
 DEFAULT_HOST = "localhost"
 
-Q_PREFIX = '__q'
-
 class Server extends process.EventEmitter
 
     constructor: (config) ->
@@ -49,7 +47,7 @@ class Server extends process.EventEmitter
 
         distributeJobs = (queues...) =>
             _.each queues, (q) =>
-                @redis.lpop Q_PREFIX + q, (err, jobId) =>
+                @redis.lpop q, (err, jobId) =>
                     if jobId
                         if workers[q] and workers[q].length
                             worker = workers[q].pop()
@@ -57,7 +55,7 @@ class Server extends process.EventEmitter
                                 pusher.send worker, "", q, jsonJob
                         else
                             # nobody's ready, back in the front of the line
-                            @redis.lpush Q_PREFIX + q, jobId
+                            @redis.lpush q, jobId
 
         routes = {}
         route = (regEx, actions) ->
@@ -81,7 +79,7 @@ class Server extends process.EventEmitter
 
         route "\/queue\/(.+?)\/?$", {
             GET: (match, response) =>
-                queue = Q_PREFIX + match[1]
+                queue = match[1]
                 @redis.lrange queue, 0, -1, (err, messages) ->
                     respond response, {
                         success: true,
@@ -89,7 +87,7 @@ class Server extends process.EventEmitter
                     }
 
             POST: (match, response, bag) =>
-                queue = Q_PREFIX + match[1]
+                queue = match[1]
                 id = uuidFactory.generate()
                 job = JSON.stringify {
                     uuid: id,
@@ -100,10 +98,10 @@ class Server extends process.EventEmitter
                     @redis.set id, job
                     @redis.rpush queue, id, (err, status) ->
                         respond response, { success: status, uuid: id }
-                        distributeJobs(match[1])
+                        distributeJobs(queue)
 
             DELETE: (match, response) =>
-                queue = Q_PREFIX + match[1]
+                queue = match[1]
                 @redis.del queue, (err, status) ->
                     respond response, {
                         success: status,
