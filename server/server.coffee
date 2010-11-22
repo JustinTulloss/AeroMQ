@@ -83,7 +83,7 @@ class Server extends process.EventEmitter
             request.on 'end', ->
                 if message
                     try
-                        bag = JSON.parse(message)
+                        bag = JSON.parse message
                     catch e
                         respond response, {
                             success: false,
