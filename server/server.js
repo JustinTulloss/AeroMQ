@@ -51,61 +51,54 @@ function c(config) {
         response.end(body);
     }
 
-    var commands = {
-        /* purge - delete's all tasks waiting to be worked on from
-         * a particular queue.
-         */
-        purge: function(response, bag) {
-            redisC.del(bag.queue, function(err, status) {
-                respond(response, {
-                    success: status,
-                    id: bag.id
-                });
-            });
-        },
-        /* publish - put a new job into a particular queue
-         */
-        publish: function(response, bag) {
-            var id = uuid.generate();
-            var job = JSON.stringify({
-                uuid: id,
-                started: Date.now(),
-                message: bag.message
-            });
-            redisC.lpush(bag.queue, job, function(err, status) {
-                respond(response, {success: status, uuid: id});
-                // Actually send this task out to be worked on
-                pusher.send(job);
-            });
-        },
-        /* monitor - get a list of jobs for a particular queue
-         */
-        monitor: function(response, bag) {
-            redisC.lrange(bag.queue, 0, -1, function(err, messages) {
+    addRoute("\/queue\/(.+?)\/?$", {
+        GET: function(match, response) {
+            var queue = match[1];
+            redisC.lrange(queue, 0, -1, function(err, messages) {
                 respond(response, {
                     success: true,
                     message: messages
                 });
             });
-        }
-    };
-
-    addRoute("\/queue\/(.+?)\/?$", {
-        GET: function(match, request, response) {
-            var queue = match[1];
-            respond(response, {});
         },
-        POST: function(match, request, response) {
+        POST: function(match, response, bag) {
             var queue = match[1];
-            var message = "";
-            request.on('data', function(chunk) {
-                message += chunk;
+            var id = uuid.generate();
+            var job = JSON.stringify({
+                uuid: id,
+                message: bag
             });
-            request.on('end', function() {
-                var bag;
+            redisC.lpush(queue, job, function(err, status) {
+                respond(response, {success: status, uuid: id});
+                // Actually send this task out to be worked on
+                pusher.send(job);
+            });
+        },
+        DELETE: function(match, response) {
+            var queue = match[1];
+            redisC.del(queue, function(err, status) {
+                respond(response, {
+                    success: status,
+                });
+            });
+        }
+    });
+
+    addRoute("\/job\/(.+?)\/?$", {
+        GET: function(match, request, response) {
+        }
+    });
+
+    var listener = http.createServer(function(request, response) {
+        var found = false;
+        var message = "";
+        request.on('data', function(data) {
+            message += data;
+        })
+        request.on('end', function() {
+            if (message) {
                 try {
                     bag = JSON.parse(message);
-                    bag.queue = queue;
                 }
                 catch(e) {
                     respond(response, {
@@ -117,46 +110,19 @@ function c(config) {
                     });
                     return;
                 }
-
-                if (!bag.command) {
-                    respond(response, {
-                        success: false,
-                        error: {
-                            message: "Malformed request"
-                        }
-                    });
-                }
-
-                var handler = commands[bag.command];
-                if (handler) {
-                    handler(response, bag);
-                }
-                else {
-                    respond(response, {
-                        success: false,
-                        error: {
-                            message: "Unknown command"
-                        }
-                    });
-                    return;
+            }
+            _.each(routes, function(methods, route) {
+                var match = request.url.match(new RegExp(route));
+                if (match && methods[request.method]) {
+                    found = true;
+                    methods[request.method](match, response, message);
+                    _.breakLoop();
                 }
             });
-        }
-    });
-
-    var listener = http.createServer(function(request, response) {
-        var found = false;
-        _.each(routes, function(methods, route) {
-            var match = request.url.match(new RegExp(route));
-            if (match && methods[request.method]) {
-                found = true;
-                methods[request.method](match, request, response);
-                _.breakLoop();
+            if (!found) {
+                return404(response);
             }
         });
-        if (!found) {
-            return404(response);
-        }
     });
 
     var port = config.port || 7000;
