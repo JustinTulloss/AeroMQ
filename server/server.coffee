@@ -10,11 +10,12 @@ _ = (require "underscore")._
 CONTROLLER_ADDRESS = "tcp://0.0.0.0:5555"
 Q_PREFIX = '__q'
 
-redisC = null # the connection to redis
-
 class Server extends process.EventEmitter
+    # an object storing queue -> list of available workers
+    workers = {}
+
     constructor: (config) ->
-        redisC = new redis.createClient
+        @redis = new redis.createClient
 
         pusher = zeromq.createSocket 'push'
         controller = zeromq.createSocket 'pub'
@@ -40,15 +41,15 @@ class Server extends process.EventEmitter
             response.end body
 
         addRoute "\/queue\/(.+?)\/?$", {
-            GET: (match, response) ->
+            GET: (match, response) =>
                 queue = Q_PREFIX + match[1]
-                redisC.lrange queue, 0, -1, (err, messages) ->
+                @redis.lrange queue, 0, -1, (err, messages) ->
                     respond response, {
                         success: true,
                         message: messages
                     }
 
-            POST: (match, response, bag) ->
+            POST: (match, response, bag) =>
                 queue = Q_PREFIX + match[1]
                 id = uuid.generate()
                 job = JSON.stringify {
@@ -56,43 +57,31 @@ class Server extends process.EventEmitter
                     message: bag
                 }
 
-                redisC.transaction ->
-                    redisC.set id, job
-                    redisC.lpush queue, id, (err, status) ->
+                @redis.transaction =>
+                    @redis.set id, job
+                    @redis.lpush queue, id, (err, status) ->
                         respond response, { success: status, uuid: id }
 
-            DELETE: (match, response) ->
+            DELETE: (match, response) =>
                 queue = Q_PREFIX + match[1]
-                redisC.del queue, (err, status) ->
+                @redis.del queue, (err, status) ->
                     respond response, {
                         success: status,
                     }
         }
 
         addRoute "\/job\/(.+?)\/?$", {
-            GET: (match, response) ->
-                redisC.get match[1], (err, job) ->
+            GET: (match, response) =>
+                @redis.get match[1], (err, job) ->
                     respond response, job
         }
 
-        listener = http.createServer (request, response) ->
+        listener = http.createServer (request, response) =>
             found = false
             message = ""
             request.on 'data', (data) ->
                 message += data
             request.on 'end', ->
-                if message
-                    try
-                        bag = JSON.parse message
-                    catch e
-                        respond response, {
-                            success: false,
-                            error: {
-                                message: e.message,
-                                type: e.type
-                            }
-                        }
-                        return
                 _.each routes, (methods, route) ->
                     match = request.url.match(new RegExp(route))
                     if match and methods[request.method]
@@ -111,7 +100,7 @@ class Server extends process.EventEmitter
                 throw err
             @emit('started', host, port)
 
-        redisC.on 'close', (in_error) ->
+        @redis.on 'close', (in_error) =>
             if in_error
                 util.puts "Connection to redis failed, please make sure the server is running."
                 process.exit -1
