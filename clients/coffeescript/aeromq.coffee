@@ -2,16 +2,12 @@ zeromq = require "zeromq"
 util = require "util"
 assert = require "assert"
 
-class Client extends EventEmitter
-    constructor: (address, queues) ->
+ZSERVER_ADDRESS = "tcp://0.0.0.0:5556"
+
+class Client extends process.EventEmitter
+    constructor: (@queues, address=ZSERVER_ADDRESS) ->
         @socket = zeromq.createSocket 'req'
         @socket.connect address
-
-        # tell the server what tasks we're interested in
-        @socket.send JSON.stringify {
-            command: 'ready'
-            queues: queues
-        }
 
         @socket.on 'message', (message) =>
             try
@@ -21,6 +17,13 @@ class Client extends EventEmitter
                 return
 
             @emit job.queue, job.uuid, job.message
+
+    ready: ->
+        # tell the server what tasks we're interested in
+        @socket.send JSON.stringify {
+            command: 'ready'
+            queues: queues
+        }
 
     done: (uuid) ->
         @socket.send JSON.stringify {
