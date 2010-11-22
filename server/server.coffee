@@ -15,7 +15,7 @@ class Server extends process.EventEmitter
     workers = {}
 
     constructor: (config) ->
-        @redis = new redis.createClient
+        @redis = redis.createClient()
 
         pusher = zeromq.createSocket 'push'
         controller = zeromq.createSocket 'pub'
