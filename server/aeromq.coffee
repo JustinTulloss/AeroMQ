@@ -13,7 +13,7 @@ options = [
 parser = new optparse.OptionParser options
 config = {}
 
-parser.banner = "Usage: " + process.ARGV[1] + " [options]"
+parser.banner = "Usage: aeromq [options]"
 
 parser.on 'port', (port) ->
     config.port = port
