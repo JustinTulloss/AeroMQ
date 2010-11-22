@@ -21,7 +21,7 @@ class Server extends process.EventEmitter
         controller = zeromq.createSocket 'pub'
         routes = {}
 
-        addRoute = (regEx, actions) ->
+        route = (regEx, actions) ->
             routes[regEx] = actions
 
         return404 = (response) ->
@@ -40,7 +40,7 @@ class Server extends process.EventEmitter
             }
             response.end body
 
-        addRoute "\/queue\/(.+?)\/?$", {
+        route "\/queue\/(.+?)\/?$", {
             GET: (match, response) =>
                 queue = Q_PREFIX + match[1]
                 @redis.lrange queue, 0, -1, (err, messages) ->
@@ -70,7 +70,7 @@ class Server extends process.EventEmitter
                     }
         }
 
-        addRoute "\/job\/(.+?)\/?$", {
+        route "\/job\/(.+?)\/?$", {
             GET: (match, response) =>
                 @redis.get match[1], (err, job) ->
                     respond response, job
