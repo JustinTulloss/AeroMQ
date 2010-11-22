@@ -5,9 +5,11 @@ util = require "util"
 
 client = aeromq.createClient(['test'])
 
-client.on('test', (id, data) ->
+client.on 'test', (id, data) ->
     util.puts 'doing some work!!'
     client.done id
     client.ready()
 
 client.ready()
+
+util.puts "Ready and waiting for work"

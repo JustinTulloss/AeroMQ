@@ -9,26 +9,26 @@ class Client extends process.EventEmitter
         @socket = zeromq.createSocket 'req'
         @socket.connect address
 
-        @socket.on 'message', (message) =>
+        @socket.on 'message', (queue, message) =>
             try
                 job = JSON.parse message
             catch e
                 @emit 'badJob', message, e
                 return
 
-            @emit job.queue, job.uuid, job.message
+            @emit queue, job.uuid, job.message
 
     ready: ->
         # tell the server what tasks we're interested in
         @socket.send JSON.stringify {
             command: 'ready'
-            queues: queues
+            queues: @queues
         }
 
     done: (uuid) ->
         @socket.send JSON.stringify {
             command: 'done'
-            job: job
+            uuid: uuid
         }
 
 exports.Client = Client
