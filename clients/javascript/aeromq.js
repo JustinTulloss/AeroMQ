@@ -1,11 +1,6 @@
 /*globals require exports process */
-var tcp = require("net"),
+var zeromq = require('zeromq'),
     util = require("util");
-
-
-function format_message(obj) {
-    return JSON.stringify(obj) + "\r\n";
-}
 
 var get_message_id = (function(){
     var message_id = 0;
@@ -27,65 +22,52 @@ function get_new_promise() {
 function send_bag(connection, bag) {
     var promise = get_new_promise();
     bag.id = promise.id;
-    connection.send(format_message(bag));
+    connection.send(JSON.stringify(bag));
     return promise;
 }
 
-function c(host, port) {
-    var my = this;
+function c(address) {
+    var self = this;
 
-    my.connection = tcp.createConnection(port || 7000, host || "localhost");
+    self.socket = zeromq.createSocket('pull');
+    self.socket.connect(address);
 
-    my.connection.addListener('connect', function() {
-        my.connection.setTimeout(0);
-        my.connection.setNoDelay();
-        my.emit('connect');
-    });
+    self.socket.on('message', function(message) {
+        var bag, promise;
+        try {
+            bag = JSON.parse(message);
+        }
+        catch(e) {
+            self.emit('badBag', data, e);
+            return;
+        }
 
-    my.connection.addListener('receive', function(raw_data) {
-        raw_data.split('\r\n').forEach(function(data) {
-            if (!data) { return; }
-            var bag, promise;
-            try {
-                bag = JSON.parse(data);
-            }
-            catch(e) {
-                my.emit('badBag', data, e);
-                return;
-            }
+        promise = pending[bag.id];
+        if (!promise) {
+            self.emit('orphanBag', bag);
+            return;
+        }
 
-            promise = pending[bag.id];
-            if (!promise) {
-                my.emit('orphanBag', bag);
-                return;
-            }
-
-            // Remove the promise. All commands are one-shot, even
-            // subscribe. If you want to get another message, you'll
-            // need to subscribe again.
-            delete pending[bag.id];
-
-            if (bag.success) {
-                // bag.message is often undefined, but that's ok.
-                promise.emitSuccess(bag.message);
-            }
-            else {
-                promise.emitError(bag.error);
-            }
-        });
-    });
-
-    my.connection.addListener('close', function(had_error) {
-        if (had_error) {
-            my.emit('couldNotConnect');
+        if (bag.success) {
+            // bag.message is often undefined, but that's ok.
+            promise.emitSuccess(bag.message);
         }
         else {
-            my.emit('disconnected');
+            promise.emitError(bag.error);
         }
     });
 
-    my.connection.addListener('eof', function(had_error) {
-        my.connection.close();
+    self.connection.addListener('close', function(had_error) {
+        if (had_error) {
+            self.emit('couldNotConnect');
+        }
+        else {
+            self.emit('disconnected');
+        }
+    });
+
+    self.connection.addListener('eof', function(had_error) {
+        self.connection.close();
     });
 
 }

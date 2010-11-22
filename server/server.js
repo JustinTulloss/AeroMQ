@@ -1,56 +1,114 @@
 /*global require process exports */
+
 var util = require("util"),
-    tcp = require("net"),
+    zeromq = require("zeromq"),
     assert = require("assert"),
-    redisclient = require("redis-client");
+    redis = require("redis-node"),
+    uuid = require("uuid"),
+    http = require("http"),
+    _ = require("underscore")._;
 
 var id = {
     name: 'AeroMQ',
     version: 0.1
 };
 
-function format_message(obj) {
-    return JSON.stringify(obj) + "\r\n";
-}
+var CONTROLLER_ADDRESS = "tcp://0.0.0.0:5555";
 
 var subscriber_queues = {};
-var redis;
+var redisC; // the connection to redis
 
 function c(config) {
     var self = this;
-    redis = new redisclient.createClient();
+    redisC= new redis.createClient();
 
-    var server = tcp.createServer(function(socket) {
-        function respond(obj) {
-            socket.send(format_message(obj));
+    var pusher = zeromq.createSocket('push');
+    var controller = zeromq.createSocket('pub');
+    var routes = {};
+
+    function addRoute(regEx, actions) {
+        routes[regEx] = actions;
+    }
+
+    function return404(response) {
+        var message = 
+        response.writeHead(404, "Resource not found.");
+        response.end();
+    }
+
+    controller.bind(CONTROLLER_ADDRESS, function(err) {
+        if (err) {
+            throw err;
         }
-
-        socket.setEncoding("utf8");
-        socket.setTimeout(0);
-        socket.setNoDelay();
-        socket.addListener("connect", function() {
-            respond(id);
-        });
-        socket.addListener("eof", function() {
-            respond({success: true, message: "goodbye"});
-            socket.close();
-        });
     });
 
-    server.addListener('connection', function(client) {
-        function respond(obj) {
-            client.send(format_message(obj));
-        }
+    function respond(response, obj) {
+        var body = JSON.stringify(obj);
+        response.writeHead(200, {
+            'Content-Length': body.length,
+            'Content-Type': 'application/json'
+        });
+        response.end(body);
+    }
 
-        client.addListener('receive', function(raw_data) {
-            raw_data.split('\r\n').forEach(function(data) {
-                var subscriber_list, bag;
-                if (!data) { return; }
+    var commands = {
+        /* purge - delete's all tasks waiting to be worked on from
+         * a particular queue.
+         */
+        purge: function(response, bag) {
+            redisC.del(bag.queue, function(err, status) {
+                respond(response, {
+                    success: status,
+                    id: bag.id
+                });
+            });
+        },
+        /* publish - put a new job into a particular queue
+         */
+        publish: function(response, bag) {
+            var id = uuid.generate();
+            var job = JSON.stringify({
+                uuid: id,
+                started: Date.now(),
+                message: bag.message
+            });
+            redisC.lpush(bag.queue, job, function(err, status) {
+                respond(response, {success: status, uuid: id});
+                // Actually send this task out to be worked on
+                pusher.send(job);
+            });
+        },
+        /* monitor - get a list of jobs for a particular queue
+         */
+        monitor: function(response, bag) {
+            redisC.lrange(bag.queue, 0, -1, function(err, messages) {
+                respond(response, {
+                    success: true,
+                    message: messages
+                });
+            });
+        }
+    };
+
+    addRoute("\/queue\/(.+?)\/?$", {
+        GET: function(match, request, response) {
+            var queue = match[1];
+            respond(response, {});
+        },
+        POST: function(match, request, response) {
+            var queue = match[1];
+            var message = "";
+            request.on('data', function(chunk) {
+                message += chunk;
+            });
+            request.on('end', function() {
+                var bag;
                 try {
-                    bag = JSON.parse(data);
+                    bag = JSON.parse(message);
+                    bag.queue = queue;
                 }
                 catch(e) {
-                    respond({
+                    respond(response, {
                         success: false,
                         error: {
                             message: e.message,
@@ -60,94 +118,61 @@ function c(config) {
                     return;
                 }
 
-                assert.ok(bag.command);
-                assert.ok(bag.queue);
-                switch (bag.command.toLowerCase()) {
-                    case 'purge':
-                        redis.del(bag.queue).addCallback(function() {
-                            respond({
-                                success: true,
-                                id: bag.id
-                            });
-                        });
-                        break;
-                    case 'subscribe':
-                        // Subscription status is maintained through your connection.
-                        // So, we set up a handler in case you disappear and put you
-                        // in the queue for the message you want. We don't respond
-                        // until there is a 'publish' message for your subscription.
-                        subscriber_list = subscriber_queues[bag.queue];
-                        if (subscriber_list) {
-                            subscriber_list.unshift(client);
+                if (!bag.command) {
+                    respond(response, {
+                        success: false,
+                        error: {
+                            message: "Malformed request"
                         }
-                        else {
-                            subscriber_queues[bag.queue] = [client];
-                            subscriber_list = subscriber_queues[bag.queue];
+                    });
+                }
+
+                var handler = commands[bag.command];
+                if (handler) {
+                    handler(response, bag);
+                }
+                else {
+                    respond(response, {
+                        success: false,
+                        error: {
+                            message: "Unknown command"
                         }
-                        client.addListener('eof', function() {
-                            client.close();
-                        });
-                        client.addListener('close', function() {
-                            var i;
-                            var len = subscriber_list.length;
-                            for (i = 0; i < len; i++) {
-                                if (subscriber_list[i] === client) {
-                                    delete subscriber_list[i];
-                                    break;
-                                }
-                            }
-                            util.puts("subscriber " + client.remoteAddress + " removed");
-                        });
-                        self.emit('bringPeopleTogether', bag);
-                        break;
-                    case 'publish':
-                        redis.lpush(bag.queue, bag.message).addCallback(function(reply) {
-                            respond({success: reply, id: bag.id});
-                            self.emit('bringPeopleTogether', bag);
-                        });
-                        break;
-                    case 'monitor':
-                        redis.lrange(bag.queue, 0, -1).addCallback(function(messages) {
-                            respond({success: true, id: bag.id, message: messages});
-                        });
-                        break;
+                    });
+                    return;
                 }
             });
+        }
+    });
+
+    var listener = http.createServer(function(request, response) {
+        var found = false;
+        _.each(routes, function(methods, route) {
+            var match = request.url.match(new RegExp(route));
+            if (match && methods[request.method]) {
+                found = true;
+                methods[request.method](match, request, response);
+                _.breakLoop();
+            }
         });
+        if (!found) {
+            return404(response);
+        }
     });
 
     var port = config.port || 7000;
     var host = config.host || "localhost";
-    server.listen(port, host);
-    self.emit('started', host, port);
 
-    redis.addListener('close', function(in_error) {
-        if (in_error) {
-            util.puts("Connection to redis failed, please make sure the server is running.");
-            process.exit(1);
+    listener.listen(port, host, function(err) {
+        if (err) {
+            throw err;
         }
+        self.emit('started', host, port);
     });
 
-    self.addListener('bringPeopleTogether', function(bag) {
-        // We got new data! How exciting! If we have a subscriber, pull
-        // the data out of the database. If the subscriber hasn't been serviced
-        // by the time we get the data, send it off and remove the subscriber
-        // from the subscriber list. Otherwise, put the data back on the queue.
-        var queue = bag.queue;
-        if (subscriber_queues[queue]) {
-            redis.rpop(queue).addCallback(function(message) {
-                var subscriber, response;
-                if (message) {
-                    if (subscriber_queues[queue].length) {
-                        response = {success: true, message: message, id: bag.id};
-                        subscriber = subscriber_queues[queue].pop();
-                        subscriber.send(format_message(response)); 
-                    }
-                    else {
-                        redis.rpush(queue, message);
-                    }
-                }
-            });
+    redisC.on('close', function(in_error) {
+        if (in_error) {
+            util.puts("Connection to redis failed, please make sure the server is running.");
+            process.exit(-1);
         }
     });
 }
@@ -165,7 +190,7 @@ c.prototype.stop = function() {
             }
         }
     }
-    redis.close();
+    redisC.close();
 };
 
 exports.Server = c;

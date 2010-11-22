@@ -15,7 +15,8 @@
     },
     "dependencies": {
         "optparse": ">=1.0.1",
-        "redis-client": ">=0.3.5"
+        "redis-node": ">=0.2.6",
+        "uuid": ">=0.0.2"
     },
     "author": "Justin Tulloss <justin.tulloss@gmail.com> (http://justin.harmonize.fm)",
     "bugs": { "web": "https://github.com/JustinTulloss/AeroMQ/issues" }
