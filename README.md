@@ -1,7 +1,10 @@
+Don't read this, it's totally inaccurate
+----------------------------------------
+ 
 AeroMQ
 ======
 
-A very simple message queue implemented in node.js.
+A very simple task queue in node.js
 
 Installation
 ------------
