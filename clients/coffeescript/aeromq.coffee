@@ -1,5 +1,6 @@
 zeromq = require "zeromq"
 util = require "util"
+assert = require "assert"
 
 class Client extends EventEmitter
     constructor: (address, queues) ->
@@ -7,7 +8,10 @@ class Client extends EventEmitter
         @socket.connect address
 
         # tell the server what tasks we're interested in
-        @socket.send JSON.stringify queues
+        @socket.send JSON.stringify {
+            command: 'ready'
+            queues: queues
+        }
 
         @socket.on 'message', (message) =>
             try
@@ -16,7 +20,13 @@ class Client extends EventEmitter
                 @emit 'badJob', message, e
                 return
 
-            @emit job.queue, job.message
+            @emit job.queue, job.uuid, job.message
+
+    done: (uuid) ->
+        @socket.send JSON.stringify {
+            command: 'done'
+            job: job
+        }
 
 exports.Client = Client
 exports.createClient = (args...) ->
