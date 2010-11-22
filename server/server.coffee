@@ -32,41 +32,48 @@ class Server extends process.EventEmitter
 
         respond = (response, obj) ->
             body = JSON.stringify obj
-            response.writeHead 200,
+            response.writeHead 200, {
                 'Content-Length': body.length,
                 'Content-Type': 'application/json'
+            }
             response.end body
 
-        addRoute "\/queue\/(.+?)\/?$",
+        addRoute "\/queue\/(.+?)\/?$", {
             GET: (match, response) ->
                 queue = match[1]
                 redisC.lrange queue, 0, -1, (err, messages) ->
-                    respond response,
+                    respond response, {
                         success: true,
                         message: messages
+                    }
 
             POST: (match, response, bag) ->
                 queue = match[1]
                 id = uuid.generate()
-                job = JSON.stringify
+                job = JSON.stringify {
                     uuid: id,
                     message: bag
+                }
 
-                redisC.lpush(queue, job, (err, status) ->
-                    respond(response, {success: status, uuid: id})
+                redisC.lpush queue, job, (err, status) ->
+                    respond response, { success: status, uuid: id }
                     # Actually send this task out to be worked on
-                    pusher.send(job))
+                    pusher.send job
 
             DELETE: (match, response) ->
                 queue = match[1]
                 redisC.del queue, (err, status) ->
-                    respond response,
+                    respond response, {
                         success: status,
+                    }
+        }
 
-        addRoute "\/job\/(.+?)\/?$",
+        addRoute "\/job\/(.+?)\/?$", {
             GET: (match, response) ->
-                respond response,
+                respond response, {
                     success: true
+                }
+        }
 
         listener = http.createServer (request, response) ->
             found = false
@@ -78,12 +85,13 @@ class Server extends process.EventEmitter
                     try
                         bag = JSON.parse(message)
                     catch e
-                        respond response,
+                        respond response, {
                             success: false,
                             error: {
                                 message: e.message,
                                 type: e.type
                             }
+                        }
                         return
                 _.each routes, (methods, route) ->
                     match = request.url.match(new RegExp(route))
