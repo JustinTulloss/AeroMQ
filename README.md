@@ -5,27 +5,24 @@ A very simple message queue implemented in node.js.
 
 Installation
 ------------
-Go into `deps/node`
-Run
 
-    ./configure
-    make
-    sudo make install
+First you need to install some dependencies:
+ * node.js - https://github.com/ry/node
+ * redis - http://code.google.com/p/redis/wiki/QuickStart
 
-Go into `deps`
-Run `install.sh`
+Installation of AeroMQ itself is easy, with `npm` (https://github.com/isaacs/npm)
+
+    $ npm install aeromq
 
 Running the server
 ------------------
 Start redis
 
-    cd redis
-    ./redis-server
+    $ redis-server
 
 Start AeroMQ
 
-    sever/aeromq.js
-
+    $ aeromq
 
 At this point, AeroMQ should announce that it is running.
 
@@ -58,7 +55,7 @@ future with the result of the query. The format is:
 
 There are 4 supported commands (verbs).
 
- * publish
- * subscribe
+ * push
+ * pop
  * monitor
  * purge
