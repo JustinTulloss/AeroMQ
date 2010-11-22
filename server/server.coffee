@@ -8,6 +8,7 @@ _ = (require "underscore")._
 
 
 CONTROLLER_ADDRESS = "tcp://0.0.0.0:5555"
+Q_PREFIX = '__q'
 
 redisC = null # the connection to redis
 
@@ -40,7 +41,7 @@ class Server extends process.EventEmitter
 
         addRoute "\/queue\/(.+?)\/?$", {
             GET: (match, response) ->
-                queue = match[1]
+                queue = Q_PREFIX + match[1]
                 redisC.lrange queue, 0, -1, (err, messages) ->
                     respond response, {
                         success: true,
@@ -48,20 +49,20 @@ class Server extends process.EventEmitter
                     }
 
             POST: (match, response, bag) ->
-                queue = match[1]
+                queue = Q_PREFIX + match[1]
                 id = uuid.generate()
                 job = JSON.stringify {
                     uuid: id,
                     message: bag
                 }
 
-                redisC.lpush queue, job, (err, status) ->
-                    respond response, { success: status, uuid: id }
-                    # Actually send this task out to be worked on
-                    pusher.send job
+                redisC.transaction ->
+                    redisC.set id, job
+                    redisC.lpush queue, id, (err, status) ->
+                        respond response, { success: status, uuid: id }
 
             DELETE: (match, response) ->
-                queue = match[1]
+                queue = Q_PREFIX + match[1]
                 redisC.del queue, (err, status) ->
                     respond response, {
                         success: status,
@@ -70,9 +71,8 @@ class Server extends process.EventEmitter
 
         addRoute "\/job\/(.+?)\/?$", {
             GET: (match, response) ->
-                respond response, {
-                    success: true
-                }
+                redisC.get match[1], (err, job) ->
+                    respond response, job
         }
 
         listener = http.createServer (request, response) ->
@@ -80,7 +80,7 @@ class Server extends process.EventEmitter
             message = ""
             request.on 'data', (data) ->
                 message += data
-            request.on 'end', () ->
+            request.on 'end', ->
                 if message
                     try
                         bag = JSON.parse(message)
@@ -99,6 +99,7 @@ class Server extends process.EventEmitter
                         found = true
                         methods[request.method](match, response, message)
                         _.breakLoop()
+
                 if not found
                     return404(response)
 
