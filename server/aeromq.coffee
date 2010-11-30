@@ -34,3 +34,8 @@ process.on 'uncaughtException', (e) ->
 s = new server.Server config
 s.on 'started', (host, port) ->
     util.puts "AeroMQ started on " + host + ":" + port
+s.on 'error', (err) ->
+    util.puts "An error occurred: " + err
+    if err.stack
+        util.puts err.stack
+

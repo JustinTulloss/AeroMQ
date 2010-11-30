@@ -18,6 +18,9 @@ class Server extends process.EventEmitter
     constructor: (config) ->
 
         @redis = redis.createClient() # redis client
+        @redis.on 'connection', (err) =>
+            if err
+                @emit 'error', 'Could not connect to redis: ' + err
 
         pusher = zeromq.createSocket 'xrep'
         controller = zeromq.createSocket 'pub'
@@ -135,12 +138,12 @@ class Server extends process.EventEmitter
 
         listener.listen port, host, (err) =>
             if err
-                throw err
-            @emit('started', host, port)
+                @emit 'error', err
+            @emit 'started', host, port
 
         pusher.bind config.zserverAddress or ZSERVER_ADDRESS, (err) ->
             if err
-                throw err
+                @emit 'error', err
             pusher.on 'message', (envelope, blank, data) ->
                 message = JSON.parse data
                 handler = workerCommands[message.command]
