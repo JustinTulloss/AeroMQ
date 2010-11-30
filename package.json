@@ -2,7 +2,7 @@
     "name": "AeroMQ",
     "version": "0.0.1",
     "description": "A simple, language agnostic message queue",
-    "main": "clients/javascript/aeromq.js",
+    "main": "clients/coffeescript/aeromq.js",
     "bin": {
         "aeromq": "server/aeromq.js"
     },
